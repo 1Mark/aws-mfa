@@ -261,8 +261,12 @@ def validate(args, config):
     # Unless we're forcing a refresh, check expiration.
     if not force_refresh:
         exp = datetime.datetime.strptime(
-            config.get(short_term_name, 'expiration'), '%Y-%m-%d %H:%M:%S')
-        diff = exp - datetime.datetime.utcnow()
+            config.get(short_term_name, 'expiration'), '%Y-%m-%d %H:%M:%S'
+        )
+        # add tz manually since strptime doesn't
+        exp = exp.replace(tzinfo=datetime.timezone.utc)
+        current_datetime_with_tz = datetime.datetime.now().astimezone()
+        diff = exp - current_datetime_with_tz
         if diff.total_seconds() <= 0:
             logger.info("Your credentials have expired, renewing.")
         else:
@@ -270,7 +274,13 @@ def validate(args, config):
             logger.info(
                 "Your credentials are still valid for %s seconds"
                 " they will expire at %s"
-                % (diff.total_seconds(), exp))
+                % (
+                    diff.total_seconds(),
+                    exp.astimezone(current_datetime_with_tz.tzinfo).replace(
+                        microsecond=0
+                    ),
+                )
+            )
 
     if should_refresh:
         get_credentials(short_term_name, key_id, access_key, args, config)
